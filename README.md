@@ -1,6 +1,3 @@
-# google-meet-transcriber
-Extensão do Google Chrome para transcrever reuniões do Google Meet e salvar em arquivos TXT.
-
 # Google Meet Transcriber
 
 Google Meet Transcriber é uma extensão para o Google Chrome que transcreve reuniões do Google Meet, registrando em um arquivo TXT o horário (hh:mm:ss), o nome do orador e a legenda do que foi falado. O arquivo é salvo com a data e horário atual.
