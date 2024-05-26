@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Google Meet Transcriber",
+  "version": "1.0",
+  "description": "Transcreve reuniões do Google Meet e salva em um arquivo TXT.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "downloads",
+    "notifications"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "24": "icons/icon24.png",
+      "48": "icons/icon48.png",
+      "64": "icons/icon64.png",
+      "128": "icons/icon128.png",
+      "512": "icons/icon512.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://meet.google.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
