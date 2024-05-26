@@ -47,9 +47,6 @@ Este projeto está licenciado sob a Licença MIT. Veja o arquivo LICENSE para ma
 
 ________________________________________________________________________________________________________________________
 
-# google-meet-transcriber
-Google Chrome extension to transcribe Google Meet meetings and save them as TXT files.
-
 # Google Meet Transcriber
 
 Google Meet Transcriber is a Google Chrome extension that transcribes Google Meet meetings, recording the time (hh:mm:ss), speaker's name, and the spoken caption in a TXT file. The file is saved with the current date and time.
