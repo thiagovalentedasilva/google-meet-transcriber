@@ -16,7 +16,7 @@ chrome.action.onClicked.addListener((tab) => {
         type: 'basic',
         iconUrl: 'icons/icon48.png',
         title: 'Google Meet Transcriber',
-        message: 'Erro ao tentar salvar a transcrição.\nEntre em uma reunião no Google Meet.'
+        message: 'Erro ao tentar gerar a transcrição.\nEntre em uma reunião no Google Meet.'
       });
       return;
     }
@@ -27,7 +27,7 @@ chrome.action.onClicked.addListener((tab) => {
           type: 'basic',
           iconUrl: 'icons/icon48.png',
           title: 'Google Meet Transcriber',
-          message: 'Transcrição salva com sucesso!'
+          message: 'Transcrição gerada com sucesso!'
         });
       } else if (response.status === 'no_transcriptions') {
         chrome.notifications.create({
