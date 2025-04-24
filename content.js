@@ -4,13 +4,11 @@
   }
 
   window.myMeetTranscriber = true;
+  console.log("Google Meet Transcriber carregado - Consolidação de texto final.");
 
+  let processedMessages = new Set();
   let transcriptions = [];
-  let currentSpeaker = '';
-  let currentCaption = '';
-  let lastCaptionTime = 0;
-  let timer = null;
-  let capturedWords = new Set();
+  let lastSpeakerText = {}; // Rastreia o texto mais recente consolidado para cada orador
 
   function getCurrentTime() {
     const now = new Date();
@@ -20,123 +18,137 @@
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
-    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+    return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
   }
 
-  function saveTranscription() {
-    if (currentCaption && currentSpeaker) {
-      const time = getCurrentTime();
-      transcriptions.push(`${time} - ${currentSpeaker}: ${currentCaption.trim()}`);
-      currentCaption = '';
-    }
-  }
-
-  function startTimer() {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      if (currentCaption.trim() !== '') {
-        saveTranscription();
-        capturedWords.clear();
+  function processCaptions() {
+    try {
+      const captionsRegion = document.querySelector('div[role="region"][aria-label="Legendas"]');
+      if (!captionsRegion) {
+        console.log("Contêiner de legendas não encontrado.");
+        return;
       }
-    }, 3000);
-  }
 
-  function observeCaptions() {
-    const captionsContainer = document.querySelector('.iOzk7[jsname="dsyhDe"]');
-    if (!captionsContainer) {
-      setTimeout(observeCaptions, 1000);
-      return;
-    }
+      const messageBlocks = captionsRegion.querySelectorAll('.nMcdL.bj4p3b');
+      if (!messageBlocks || messageBlocks.length === 0) {
+        console.log("Nenhuma mensagem detectada.");
+        return;
+      }
 
-    const config = { childList: true, subtree: true, characterData: true };
+      messageBlocks.forEach(block => {
+        const speakerElement = block.querySelector('.NWpY1d');
+        const textElement = block.querySelector('div[jsname="tgaKEf"]');
 
-    const callback = function(mutationsList) {
-      for (let mutation of mutationsList) {
-        if (mutation.type === 'childList' || mutation.type === 'characterData') {
-          const textContainer = document.querySelector('div[jsname="tgaKEf"]'); // Seleciona o texto da legenda
-          if (textContainer) {
-            const currentText = textContainer.innerText;
-            const words = currentText.split(/\s+/);
+        if (!speakerElement || !textElement) return;
 
-            words.forEach((word, index) => {
-              setTimeout(() => {
-                if (!capturedWords.has(word) && word.trim() !== '') {
-                  capturedWords.add(word);
-                  const speakerContainer = textContainer.closest('div[jsname="dsyhDe"]'); // Seleciona o container da legenda
-                  if (speakerContainer) {
-                    const speaker = speakerContainer.querySelector('.zs7s8d.jxFHg'); // Seleciona o nome do orador
-                    if (speaker) {
-                      const speakerName = speaker.innerText.trim();
-                      const currentTime = new Date().getTime();
+        const speakerName = speakerElement.innerText.trim();
+        const messageText = textElement.innerText.trim();
 
-                      if (currentSpeaker !== speakerName || (currentTime - lastCaptionTime) > 3000) {
-                        if (currentCaption.trim() !== '') {
-                          saveTranscription();
-                          capturedWords.clear();
-                        }
-                        currentSpeaker = speakerName;
-                        currentCaption = word + ' ';
-                        startTimer();
-                      } else {
-                        currentCaption += word + ' ';
-                        startTimer();
-                      }
-                      lastCaptionTime = currentTime;
-                    }
-                  }
-                }
-              }, index * 300);
-            });
-          }
+        if (!messageText) return;
+
+        // Verifica se o texto é o mesmo do mais recente para este orador
+        if (lastSpeakerText[speakerName] === messageText) {
+          return; // Já processado, não faz nada
         }
-      }
-    };
 
-    const observer = new MutationObserver(callback);
-    observer.observe(captionsContainer, config);
+        // Atualiza a transcrição para consolidar o texto final
+        const time = getCurrentTime();
+        if (processedMessages.has(messageText)) {
+          // Se já processamos exatamente este texto, apenas atualizamos o último texto do orador
+          lastSpeakerText[speakerName] = messageText;
+        } else {
+          // Adiciona uma nova entrada consolidada
+          transcriptions.push(`${time} - ${speakerName}: ${messageText}`);
+          processedMessages.add(messageText);
+          lastSpeakerText[speakerName] = messageText;
+          console.log(`Mensagem capturada: ${speakerName}: ${messageText}`);
+        }
+      });
+    } catch (error) {
+      console.error(`Erro ao processar legendas: ${error.message}`);
+    }
   }
 
   function getMeetCode(url) {
     const regex = /https:\/\/meet\.google\.com\/([a-z]{3}-[a-z]{4}-[a-z]{3})/;
     const match = url.match(regex);
-    return match ? match[1] : null;
+    return match ? match[1] : 'meet-transcription';
   }
 
   function downloadTranscription() {
-    if (transcriptions.length > 0) {
-      const blob = new Blob([transcriptions.join('\n')], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const filename = `${getMeetCode(window.location.href)} ${day}-${month}-${year}T${hours}-${minutes}.txt`;
-      chrome.runtime.sendMessage({ action: 'download', url: url, filename: filename });
+    console.log("Preparando para baixar transcrição.");
+
+    if (transcriptions.length === 0) {
+      console.log("Nenhuma transcrição disponível para baixar.");
+      return false;
+    }
+
+    const content = transcriptions.join('\n');
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const meetCode = getMeetCode(window.location.href);
+    const filename = `${meetCode}_${day}-${month}-${year}_${hours}-${minutes}.txt`;
+
+    chrome.runtime.sendMessage(
+      { action: 'download', url: url, filename: filename },
+      response => {
+        console.log(`Download solicitado: ${filename}`);
+      }
+    );
+
+    return true;
+  }
+
+  function setupMutationObserver() {
+    console.log("Configurando MutationObserver para detectar mudanças.");
+
+    const observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        if (
+          mutation.target &&
+          mutation.target.nodeType === Node.ELEMENT_NODE // Garante que é um nó DOM
+        ) {
+          processCaptions();
+        }
+      });
+    });
+
+    const captionsRegion = document.querySelector('div[role="region"][aria-label="Legendas"]');
+    if (captionsRegion) {
+      observer.observe(captionsRegion, {
+        childList: true,
+        subtree: true,
+      });
+    } else {
+      console.log("Região de legendas ainda não encontrada.");
     }
   }
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'saveTranscription') {
-      downloadTranscription();
-      sendResponse({ status: transcriptions.length > 0 ? 'success' : 'no_transcriptions' });
+      processCaptions();
+      const success = downloadTranscription();
+      sendResponse({
+        status: success ? 'success' : 'no_transcriptions',
+        count: transcriptions.length,
+      });
     }
+    return true;
   });
 
-  function observeLeaveButton() {
-    const leaveButton = document.querySelector('button[jsname="CQylAd"]');
-    if (!leaveButton) {
-      setTimeout(observeLeaveButton, 1000);
-      return;
+  setTimeout(() => {
+    try {
+      setupMutationObserver();
+      console.log("Transcriber inicializado com sucesso.");
+    } catch (error) {
+      console.error(`Erro ao inicializar: ${error.message}`);
     }
-
-    leaveButton.addEventListener('click', () => {
-      saveTranscription();
-      downloadTranscription();
-    });
-  }
-
-  observeCaptions();
-  observeLeaveButton();
+  }, 2000);
 })();
